@@ -67,7 +67,7 @@ class AetherService : Service() {
             }
             sendStatus("قطع شد")
         } catch (e: Exception) {
-            sendStatus("خطا: ${e.message}")
+            sendStatus("خطا: ${e.message ?: e.javaClass.simpleName}")
             Log.e("AetherVPN", "err", e)
         }
     }
