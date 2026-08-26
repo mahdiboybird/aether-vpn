@@ -23,7 +23,7 @@
         android:text="توسط Mahdi • @HetznerIR"
         android:textSize="14sp"
         android:textColor="#94a3b8"
-        android:layout_marginTop="4" />
+        android:layout_marginTop="4dp" />
 
     <TextView
         android:id="@+id/status"
@@ -32,7 +32,7 @@
         android:text="غیرفعال"
         android:textSize="16sp"
         android:textColor="#cbd5e1"
-        android:layout_marginTop="28" />
+        android:layout_marginTop="28dp" />
 
     <Button
         android:id="@+id/toggle"
@@ -40,5 +40,5 @@
         android:layout_height="wrap_content"
         android:text="اتصال"
         android:textSize="18sp"
-        android:layout_marginTop="24" />
+        android:layout_marginTop="24dp" />
 </LinearLayout>
