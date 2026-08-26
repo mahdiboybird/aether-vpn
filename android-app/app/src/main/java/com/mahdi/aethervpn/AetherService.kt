@@ -63,7 +63,7 @@ class AetherService : Service() {
             val reader = BufferedReader(InputStreamReader(proc!!.inputStream))
             var line: String?
             while (reader.readLine().also { line = it } != null) {
-                Log.d("AetherVPN", line)
+                Log.d("AetherVPN", line ?: "")
             }
             sendStatus("قطع شد")
         } catch (e: Exception) {
