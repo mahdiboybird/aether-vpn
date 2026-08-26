@@ -7,6 +7,19 @@ Aether (Cloudflare WARP client) - UDP/ WireGuard mode for unrestricted access
 یک کلاینت ساده برای **Aether** که از سرورهای رایگان Cloudflare WARP استفاده می‌کند.
 نیاز به سرور شخصی، دامنه یا خرید اشتراک ندارد.
 
+## 📥 دانلود APK (اندروید)
+دانلود مستقیم:
+```
+https://raw.githubusercontent.com/mahdiboybird/aether-vpn/main/apk/AetherVPN-debug.apk
+```
+یا از بخش [Releases](https://github.com/mahdiboybird/aether-vpn/releases) و فایل `DOWNLOAD.md` راهنما.
+
+## نصب و راه‌اندازی
+1. فایل APK را دانلود و نصب کن (اجازه «منابع ناشناخته» را بده)
+2. برنامه را باز کن → «اتصال»
+3. تلگرام → تنظیمات → پروکسی → SOCKS5 → سرور `127.0.0.1` پورت `1819`
+4. کال تلگرام را تست کن
+
 ## ویژگی‌ها
 - ✅ بدون سرور شخصی (از Cloudflare WARP استفاده می‌کند)
 - ✅ حالت UDP / WireGuard (`--wg`) — مناسب برای کال/تماس تلگرام
