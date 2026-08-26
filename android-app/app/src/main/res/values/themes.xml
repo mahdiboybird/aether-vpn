@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.AetherVPN" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#0f0c29</item>
+        <item name="android:colorForeground">#e2e8f0</item>
+    </style>
+</resources>

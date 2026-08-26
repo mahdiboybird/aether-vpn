@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp"
+    android:background="#0f0c29">
+
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Aether VPN"
+        android:textSize="30sp"
+        android:textStyle="bold"
+        android:textColor="#3b82f6" />
+
+    <TextView
+        android:id="@+id/sub"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="توسط Mahdi • @HetznerIR"
+        android:textSize="14sp"
+        android:textColor="#94a3b8"
+        android:layout_marginTop="4" />
+
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="غیرفعال"
+        android:textSize="16sp"
+        android:textColor="#cbd5e1"
+        android:layout_marginTop="28" />
+
+    <Button
+        android:id="@+id/toggle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="اتصال"
+        android:textSize="18sp"
+        android:layout_marginTop="24" />
+</LinearLayout>
