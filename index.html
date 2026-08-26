@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aether VPN — توسط Mahdi</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, system-ui, 'Segoe UI', Tahoma, sans-serif;
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    color:#e2e8f0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .card {
+    background:rgba(255,255,255,0.06); backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,0.1); border-radius:20px;
+    padding:40px 30px; max-width:420px; width:100%; text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,0.4);
+  }
+  .logo { font-size:54px; margin-bottom:10px; }
+  h1 { font-size:24px; margin-bottom:6px; background:linear-gradient(90deg,#3b82f6,#8b5cf6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .sub { color:#94a3b8; font-size:14px; margin-bottom:24px; }
+  .btn {
+    display:block; width:100%; padding:16px; margin:10px 0; border-radius:12px;
+    text-decoration:none; font-weight:700; font-size:16px; transition:.2s;
+  }
+  .btn-primary { background:linear-gradient(90deg,#3b82f6,#6366f1); color:#fff; }
+  .btn-primary:hover { transform:translateY(-2px); box-shadow:0 10px 25px rgba(59,130,246,.4); }
+  .btn-tg { background:linear-gradient(90deg,#0088cc,#229ed9); color:#fff; }
+  .btn-tg:hover { transform:translateY(-2px); box-shadow:0 10px 25px rgba(0,136,204,.4); }
+  .feat { text-align:right; margin:20px 0; font-size:13px; color:#cbd5e1; line-height:1.9; }
+  .feat li { list-style:none; padding-right:22px; position:relative; }
+  .feat li:before { content:"✅"; position:absolute; right:0; }
+  .foot { margin-top:20px; font-size:12px; color:#64748b; }
+  code { background:rgba(0,0,0,.3); padding:2px 6px; border-radius:4px; font-size:12px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🌬️</div>
+    <h1>Aether VPN</h1>
+    <p class="sub">توسط Mahdi · بدون سرور · بدون دامنه</p>
+
+    <a class="btn btn-primary" href="https://github.com/CluvexStudio/Aether/releases/latest">📥 دانلود برای اندروید (Termux)</a>
+    <a class="btn btn-tg" href="https://t.me/HetznerIR">💬 تلگرام من: @HetznerIR</a>
+
+    <ul class="feat">
+      <li>استفاده از سرورهای رایگان Cloudflare WARP</li>
+      <li>حالت UDP / WireGuard برای کال تلگرام</li>
+      <li>ضدّ فیلتر و DPI</li>
+      <li>نیاز به خرید سرور یا اشتراک ندارد</li>
+    </ul>
+
+    <p class="foot">
+      نصب در Termux:<br>
+      <code>curl -fsSL https://raw.githubusercontent.com/CluvexStudio/aether/main/aether.sh | bash</code><br><br>
+      اجرا (UDP): <code>aether --wg --bind 127.0.0.1:1819</code>
+    </p>
+  </div>
+</body>
+</html>
