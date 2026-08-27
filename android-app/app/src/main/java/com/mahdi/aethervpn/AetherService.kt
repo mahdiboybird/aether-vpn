@@ -22,7 +22,7 @@ class AetherService : Service() {
     companion object {
         const val CHANNEL = "mahdi_vpn"
         const val ACTION_STATUS = "com.mahdi.aethervpn.STATUS"
-        const val SO_NAME = "libmahdi.so"
+        const val BIN_NAME = "mahdi"
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -41,16 +41,10 @@ class AetherService : Service() {
 
     private fun runBinary() {
         try {
-            val libDir = File(applicationInfo.nativeLibraryDir)
-            val src = File(libDir, SO_NAME)
-            val bin = File(filesDir, "mahdi")
-            if (src.exists()) {
-                src.copyTo(bin, overwrite = true)
-            } else {
-                // fallback: extract from assets if present
-                assets.open(SO_NAME).use { inp ->
-                    bin.outputStream().use { out -> inp.copyTo(out) }
-                }
+            val bin = File(filesDir, BIN_NAME)
+            // extract from assets (robust on all android versions)
+            assets.open(BIN_NAME).use { inp ->
+                bin.outputStream().use { out -> inp.copyTo(out) }
             }
             bin.setExecutable(true, false)
 
