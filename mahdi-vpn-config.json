@@ -1,0 +1,17 @@
+{
+  "outbounds": [{
+    "protocol": "vless",
+    "settings": {
+      "vnext": [{
+        "address": "cdn-status-check.mahdiboybird.workers.dev",
+        "port": 443,
+        "users": [{ "id": "f7259050-c186-4b30-8f75-34f248ef3cf7", "encryption": "none" }]
+      }]
+    },
+    "streamSettings": {
+      "network": "ws",
+      "security": "tls",
+      "wsSettings": { "path": "/?ed=2048" }
+    }
+  }]
+}

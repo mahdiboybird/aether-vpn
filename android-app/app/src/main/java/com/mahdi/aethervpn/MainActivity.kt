@@ -8,6 +8,10 @@ import android.content.IntentFilter
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
+import android.net.VpnService
+import androidx.core.app.ActivityCompat
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 
 class MainActivity : Activity() {
 
@@ -32,13 +36,33 @@ class MainActivity : Activity() {
         btn = findViewById(R.id.toggle)
 
         btn.setOnClickListener {
-            val i = Intent(this, AetherService::class.java)
-            if (!running) startForegroundService(i) else stopService(i)
+            if (!running) {
+                // request VPN permission if needed
+                val i = VpnService.prepare(this)
+                if (i != null) {
+                    ActivityCompat.startActivityForResult(this, i, 100, null)
+                } else {
+                    startVpn()
+                }
+            } else {
+                stopService(Intent(this, MahdiVpnService::class.java))
+            }
             btn.isEnabled = false
             btn.postDelayed({ btn.isEnabled = true }, 1200)
         }
 
-        registerReceiver(receiver, IntentFilter("com.mahdi.aethervpn.STATUS"))
+        registerReceiver(receiver, IntentFilter(MahdiVpnService.ACTION_STATUS))
+    }
+
+    private fun startVpn() {
+        startForegroundService(Intent(this, MahdiVpnService::class.java))
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 100 && resultCode == RESULT_OK) {
+            startVpn()
+        }
     }
 
     override fun onDestroy() {

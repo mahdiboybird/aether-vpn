@@ -1,0 +1,1 @@
+vless://f7259050-c186-4b30-8f75-34f248ef3cf7@cdn-status-check.mahdiboybird.workers.dev:443?encryption=none&security=tls&type=ws&path=%2F%3Fed%3D2048#MAHDI-VPN
