@@ -41,11 +41,9 @@ class AetherService : Service() {
 
     private fun runBinary() {
         try {
-            val bin = File(filesDir, BIN_NAME)
-            // extract from assets (robust on all android versions)
-            assets.open(BIN_NAME).use { inp ->
-                bin.outputStream().use { out -> inp.copyTo(out) }
-            }
+            // Android places .so libs in nativeLibraryDir; execute directly from there
+            val libDir = File(applicationInfo.nativeLibraryDir, "libmahdi.so")
+            val bin = if (libDir.exists()) libDir else File(applicationInfo.nativeLibraryDir, "libmahdi.so")
             bin.setExecutable(true, false)
 
             val cmd = listOf(
