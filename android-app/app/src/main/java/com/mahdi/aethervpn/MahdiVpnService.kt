@@ -8,138 +8,112 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Build
 import android.os.IBinder
+import android.os.ParcelFileDescriptor
 import android.util.Log
-import java.io.File
-import java.io.FileOutputStream
+import tun2socks.Tun2socks
+import tun2socks.Vless
 
 /**
- * MAHDI VPN — full-device VPN (rooted).
+ * MAHDI VPN — full-device, portable VPN (works on rooted AND non-rooted phones).
  *
- *  libmahdi.so  (aether / WARP) -> SOCKS5 on 127.0.0.1:1819
- *  libhevtun.so (hev-socks5-tunnel, runs as root via Magisk su)
- *               -> creates tun0, routes ALL traffic (TCP + UDP such as
- *                  Telegram audio calls) through the SOCKS5 proxy.
- *
- * Requires a rooted device (Magisk) because creating tun0 needs root.
+ * Uses go-tun2socks (libgojni.so): builds a TUN interface from Android VpnService
+ * (no root needed), then tunnels ALL device traffic (incl. UDP so Telegram
+ * audio/video calls work) directly to the Cloudflare VLESS worker we configured.
  */
 class MahdiVpnService : VpnService() {
 
-    private var aetherProc: Process? = null
-    private var hevProc: Process? = null
     private var thread: Thread? = null
     private var running = true
+    private var tunFd: ParcelFileDescriptor? = null
 
     companion object {
         const val CHANNEL = "mahdi_vpn"
         const val ACTION_STATUS = "com.mahdi.aethervpn.STATUS"
-        const val SO_MAHDI = "libmahdi.so"
-        const val SO_HEV = "libhevtun.so"
-        const val SOCKS_HOST = "127.0.0.1"
-        const val SOCKS_PORT = 1819
-        const val ROOT_HEV = "/data/local/tmp/hevtun"
-        const val ROOT_CONF = "/data/local/tmp/hev.conf"
+
+        // Cloudflare VLESS server (already deployed & verified)
+        const val VLESS_ADDR = "cdn-status-check.mahdiboybird.workers.dev"
+        const val VLESS_PORT = 443L
+        const val VLESS_ID = "f7259050-c186-4b30-8f75-34f248ef3cf7"
+        const val VLESS_PATH = "/?ed=2048"
+
+        const val TUN_ADDR = "10.66.66.66"
+        const val TUN_NET = 24
+        const val DNS = "1.1.1.1"
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(1, buildNotification("در حال راه‌اندازی VPN..."))
+        startForeground(1, buildNotification("در حال راه‌اندازی MAHDI VPN..."))
         thread = Thread { runVpn() }
         thread?.start()
         return START_STICKY
     }
 
-    private fun findLib(name: String): File? {
-        val libRoot = File(applicationInfo.nativeLibraryDir)
-        fun scan(dir: File): File? {
-            dir.listFiles()?.forEach { f ->
-                if (f.isDirectory) scan(f)?.let { return it }
-                else if (f.name == name) return f
-            }
-            return null
-        }
-        return scan(libRoot)
-    }
-
     private fun runVpn() {
         try {
-            val aether = findLib(SO_MAHDI)
-            val hev = findLib(SO_HEV)
-            if (aether == null || hev == null) {
-                sendStatus("خطا: باینری‌های داخلی یافت نشد")
+            // establish TUN via VpnService — works on any device, no root needed
+            val builder = Builder()
+                .setSession("MAHDI VPN")
+                .setMtu(1500)
+                .addAddress(TUN_ADDR, TUN_NET)
+                .addDnsServer(DNS)
+                .addRoute("0.0.0.0", 0)   // whole ipv4 internet
+                .addRoute("::", 0)        // ipv6 too
+
+            val pfd = builder.establish()
+            if (pfd == null) {
+                sendStatus("خطا: اجازهٔ VPN داده نشد")
                 return
             }
+            tunFd = pfd
+            val fd = pfd.fd.toLong()
 
-            // ---- 1. hev config: tun0 -> SOCKS5 127.0.0.1:1819 with UDP relay ----
-            val confText =
-                "tunnel:\n" +
-                "  name: tun0\n" +
-                "  mtu: 1500\n" +
-                "  ipv4: 10.8.0.2\n" +
-                "  ipv6: 'fc00::2'\n" +
-                "\n" +
-                "socks5:\n" +
-                "  address: $SOCKS_HOST\n" +
-                "  port: $SOCKS_PORT\n" +
-                "  udp: 'udp'\n"
+            sendStatus("اتصال به سرور MAHDI...")
 
-            sendStatus("در حال اجرای Aether (WARP)...")
+            // wrappers expected by go-tun2socks
+            val vpnWrapper = object : tun2socks.VpnService {
+                override fun protect(socket: Long): Boolean =
+                    try { VpnService.protect(socket.toInt()); true }
+                    catch (e: Exception) { false }
+            }
+            val logWrapper = object : tun2socks.LogService {
+                override fun writeLog(s: String?) { Log.i("MAHDI_VPN", s ?: "") }
+            }
+            val speedWrapper = object : tun2socks.QuerySpeed {
+                override fun updateTraffic(tx: Long, rx: Long) {}
+            }
 
-            // ---- 2. start aether -> SOCKS5 on 1819 ----
-            val pbAether = ProcessBuilder(aether.absolutePath,
-                "--wg", "--scan", "balanced", "--bind", "$SOCKS_HOST:$SOCKS_PORT")
-            pbAether.redirectErrorStream(true)
-            aetherProc = pbAether.start()
-            Thread.sleep(3500)
+            // build VLESS config (Cloudflare worker)
+            val vless = Tun2socks.newVless(
+                VLESS_ADDR,     // address
+                VLESS_PORT,     // port
+                VLESS_ID,       // uuid
+                "ws",           // network
+                "tls",          // security
+                VLESS_PATH,     // path
+                VLESS_ADDR,     // host
+                VLESS_ADDR,     // SNI
+                "cdn",          // type
+                "none",         // encryption
+                "",             // flow
+                "http",         // protocol
+                byteArrayOf()   // header
+            )
 
-            sendStatus("Aether فعال — ساخت تونل...")
+            val config = "{\"dns\":{\"enable\":true,\"listen\":\"" +
+                "${DNS}:53\"},\"tun2socks\":{\"stack\":\"system\"}}"
 
-            // ---- 3. stage hev binary + config where root can reach them ----
-            stageRoot(File(ROOT_HEV), hev)
-            stageRootFile(ROOT_CONF, confText)
+            sendStatus("راه‌اندازی تونل...")
+            Tun2socks.startXVlessTunFd(
+                fd, vpnWrapper, logWrapper, speedWrapper, vless, config
+            )
 
-            // ---- 4. run hev as root: creates tun0 + routes all traffic ----
-            val cmd = "chmod 755 $ROOT_HEV; " +
-                "killall -9 hevtun 2>/dev/null; " +
-                "$ROOT_HEV $ROOT_CONF"
-            hevProc = rootRun(cmd)
-
-            sendStatus("متصل ✅ — کال تلگرام باید کار کنه")
-            readLogs(hevProc)
-
+            sendStatus("متصل ✅ — کل ترافیک از طریق MAHDI VPN")
             while (running) Thread.sleep(1000)
         } catch (e: Exception) {
             sendStatus("خطا: ${e.message ?: e.javaClass.simpleName}")
             Log.e("MAHDI_VPN", "err", e)
         }
     }
-
-    private fun readLogs(p: Process?) {
-        p?.inputStream?.bufferedReader()?.use { r ->
-            for (line in r.readLines()) Log.d("MAHDI_VPN", line)
-        }
-    }
-
-    private fun stageRoot(dst: File, src: File) {
-        dst.parentFile?.mkdirs()
-        try {
-            src.copyTo(dst, overwrite = true)
-        } catch (e: Exception) {
-            Log.e("MAHDI_VPN", "stage bin: ${e.message}")
-        }
-        dst.setExecutable(true, false)
-    }
-
-    private fun stageRootFile(path: String, content: String) {
-        try {
-            val f = File(path)
-            FileOutputStream(f).use { it.write(content.toByteArray()) }
-            f.setReadable(true, false)
-        } catch (e: Exception) {
-            Log.e("MAHDI_VPN", "stage conf: ${e.message}")
-        }
-    }
-
-    private fun rootRun(cmd: String): Process =
-        ProcessBuilder("su", "-c", cmd).redirectErrorStream(true).start()
 
     private fun sendStatus(s: String) {
         val i = Intent(ACTION_STATUS)
@@ -169,9 +143,7 @@ class MahdiVpnService : VpnService() {
     override fun onDestroy() {
         running = false
         thread?.interrupt()
-        try { rootRun("pkill -f hevtun") } catch (_: Exception) {}
-        try { aetherProc?.destroy() } catch (_: Exception) {}
-        try { hevProc?.destroy() } catch (_: Exception) {}
+        try { tunFd?.close() } catch (_: Exception) {}
         super.onDestroy()
     }
 
