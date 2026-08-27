@@ -12,7 +12,6 @@ import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import java.io.File
-import java.io.FileOutputStream
 
 class MahdiVpnService : VpnService() {
 
@@ -33,8 +32,10 @@ class MahdiVpnService : VpnService() {
         return START_STICKY
     }
 
+    // Find libmahdi.so inside nativeLibraryDir (Android extracts jniLibs here, executable)
     private fun findBinary(): File? {
         val libRoot = File(applicationInfo.nativeLibraryDir)
+        Log.d("MAHDI_VPN", "nativeLibDir = ${libRoot.absolutePath}, exists=${libRoot.exists()}")
         fun scan(dir: File): File? {
             dir.listFiles()?.forEach { f ->
                 if (f.isDirectory) scan(f)?.let { return it }
@@ -42,43 +43,33 @@ class MahdiVpnService : VpnService() {
             }
             return null
         }
-        return scan(libRoot)
-    }
-
-    private fun copyToExecutable(src: File): File {
-        // /data/local/tmp is world-executable on most devices
-        val dst = File("/data/local/tmp", "mahdi")
-        try {
-            src.copyTo(dst, overwrite = true)
-        } catch (e: Exception) {
-            // fallback to app's exec dir
-            val f2 = File(filesDir, "mahdi")
-            src.copyTo(f2, overwrite = true)
-            return f2
+        val found = scan(libRoot)
+        if (found != null) {
+            Log.d("MAHDI_VPN", "found ${found.absolutePath}, canExec=${found.canExecute()}")
+        } else {
+            Log.e("MAHDI_VPN", "libmahdi.so NOT found under $libRoot")
         }
-        return dst
+        return found
     }
 
     private fun runVpn() {
         try {
             val bin = findBinary()
             if (bin == null) {
-                sendStatus("خطا: باینری یافت نشد")
+                sendStatus("خطا: باینری یافت نشد (nativeLibraryDir)")
                 return
             }
-            val exe = copyToExecutable(bin)
-            exe.setExecutable(true, false)
-            Log.d("MAHDI_VPN", "exec: ${exe.absolutePath}, exists=${exe.exists()}, canExec=${exe.canExecute()}")
+            // Run DIRECTLY from nativeLibraryDir — no copy (Android blocks exec elsewhere)
+            bin.setExecutable(true, false)
 
-            val cmd = listOf(exe.absolutePath, "--wg", "--scan", "balanced", "--bind", "127.0.0.1:1819")
+            val cmd = listOf(bin.absolutePath, "--wg", "--scan", "balanced", "--bind", "127.0.0.1:1819")
+            Log.d("MAHDI_VPN", "exec: ${bin.absolutePath}")
             val pb = ProcessBuilder(cmd)
-            pb.directory(filesDir)
             pb.redirectErrorStream(true)
             proc = pb.start()
             sendStatus("Aether در حال اجرا...")
             Thread.sleep(3000)
 
-            // Build VPN interface routing ALL traffic
             val builder = Builder()
                 .setSession("MAHDI VPN")
                 .addAddress("10.10.10.2", 24)
