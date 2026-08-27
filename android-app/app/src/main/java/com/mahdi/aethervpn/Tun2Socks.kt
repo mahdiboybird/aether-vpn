@@ -26,8 +26,8 @@ class Tun2Socks(
     @Volatile private var running = true
 
     // map local socket key -> destination
-    private val tcpConns = ConcurrentHashMap<Int, TcpConn>()
-    private val udpConns = ConcurrentHashMap<Int, UdpConn>()
+    private val tcpConns = ConcurrentHashMap<Int, Socket>()
+    private val udpConns = ConcurrentHashMap<Int, DatagramSocket>()
 
     override fun run() {
         val `in` = FileInputStream(tunFd.fileDescriptor)
@@ -78,10 +78,11 @@ class Tun2Socks(
                 os.write(byteArrayOf(0x05, 0x01, 0x00))
                 `is`.read(); `is`.read()
                 // connect dst via socks
-                os.write(0x05); os.write(0x01); os.write(0x00); os.write(0x01)
-                val dip = InetAddress.getByName(dstIp).address
-                os.write(dip)
-                os.write((dstPort shr 8).toByte()); os.write((dstPort and 0xFF).toByte())
+                val req = byteArrayOf(0x05, 0x01, 0x00, 0x01) +
+                        InetAddress.getByName(dstIp).address +
+                        byteArrayOf((dstPort shr 8).toByte(), (dstPort and 0xFF).toByte())
+                os.write(req)
+                `is`.read(); `is`.read(); `is`.read(); `is`.read()
                 `is`.read(); `is`.read(); `is`.read(); `is`.read()
                 `is`.read(); `is`.read(); `is`.read(); `is`.read()
                 // send payload
@@ -118,15 +119,15 @@ class Tun2Socks(
                 val os = s.getOutputStream(); val `is` = s.getInputStream()
                 os.write(byteArrayOf(0x05,0x01,0x00)); `is`.read(); `is`.read()
                 // UDP ASSOCIATE
-                os.write(0x05); os.write(0x03); os.write(0x00); os.write(0x01)
-                os.write(byteArrayOf(0,0,0,0)); os.write(0,0)
+                os.write(byteArrayOf(0x05, 0x03, 0x00, 0x01, 0,0,0,0, 0, 0))
                 `is`.read(); `is`.read(); `is`.read(); `is`.read()
                 `is`.read(); `is`.read(); `is`.read(); `is`.read()
-                // send UDP via proxy
-                os.write(0x00); os.write(0x00); os.write(0x00) // rsv frag
-                os.write(0x01); os.write(InetAddress.getByName(dstIp).address)
-                os.write((dstPort shr 8).toByte()); os.write((dstPort and 0xFF).toByte())
-                os.write(payload)
+                // send UDP via proxy (SOCKS5 UDP header + dst + payload)
+                val udpReq = byteArrayOf(0x00, 0x00, 0x00, 0x01) +
+                        InetAddress.getByName(dstIp).address +
+                        byteArrayOf((dstPort shr 8).toByte(), (dstPort and 0xFF).toByte()) +
+                        payload
+                os.write(udpReq)
                 s.close()
             } catch (e: Exception) {
                 Log.d(TAG, "udp $dstIp:$dstPort ${e.message}")
