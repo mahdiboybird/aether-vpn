@@ -55,10 +55,6 @@ curl -x socks5h://127.0.0.1:1819 https://www.cloudflare.com/cdn-cgi/trace
    - پورت: `1819`
 3. کال تلگرام را تست کنید
 
-## منبع
-- پروژه اصلی: https://github.com/CluvexStudio/Aether
-- کانال تلگرام سازنده: https://t.me/CluvexStudio
-
 ---
 ساخته‌شده برای استفادهٔ شخصی — بدون هیچ سرور اختصاصی.
 >>>>>>> 8817fc9 (Aether VPN: UDP/WireGuard mode for unrestricted access (no server needed))
