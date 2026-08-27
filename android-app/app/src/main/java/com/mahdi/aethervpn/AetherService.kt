@@ -20,8 +20,9 @@ class AetherService : Service() {
     private var thread: Thread? = null
 
     companion object {
-        const val CHANNEL = "aether_vpn"
+        const val CHANNEL = "mahdi_vpn"
         const val ACTION_STATUS = "com.mahdi.aethervpn.STATUS"
+        const val SO_NAME = "libmahdi.so"
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -40,10 +41,17 @@ class AetherService : Service() {
 
     private fun runBinary() {
         try {
-            val nativeDir = applicationInfo.nativeLibraryDir
-            val bin = File(filesDir, "aether")
-            val src = File(nativeDir, "libaether.so")
-            src.copyTo(bin, overwrite = true)
+            val libDir = File(applicationInfo.nativeLibraryDir)
+            val src = File(libDir, SO_NAME)
+            val bin = File(filesDir, "mahdi")
+            if (src.exists()) {
+                src.copyTo(bin, overwrite = true)
+            } else {
+                // fallback: extract from assets if present
+                assets.open(SO_NAME).use { inp ->
+                    bin.outputStream().use { out -> inp.copyTo(out) }
+                }
+            }
             bin.setExecutable(true, false)
 
             val cmd = listOf(
@@ -63,12 +71,12 @@ class AetherService : Service() {
             val reader = BufferedReader(InputStreamReader(proc!!.inputStream))
             var line: String?
             while (reader.readLine().also { line = it } != null) {
-                Log.d("AetherVPN", line ?: "")
+                Log.d("MAHDI_VPN", line ?: "")
             }
             sendStatus("قطع شد")
         } catch (e: Exception) {
             sendStatus("خطا: ${e.message ?: e.javaClass.simpleName}")
-            Log.e("AetherVPN", "err", e)
+            Log.e("MAHDI_VPN", "err", e)
         }
     }
 
@@ -87,7 +95,7 @@ class AetherService : Service() {
         val intent = Intent(this, MainActivity::class.java)
         val pi = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this, CHANNEL)
-            .setContentTitle("Aether VPN — Mahdi")
+            .setContentTitle("MAHDI VPN")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setContentIntent(pi)
@@ -97,7 +105,7 @@ class AetherService : Service() {
     private fun createChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
             val ch = NotificationChannel(
-                CHANNEL, "Aether VPN", NotificationManager.IMPORTANCE_LOW
+                CHANNEL, "MAHDI VPN", NotificationManager.IMPORTANCE_LOW
             )
             (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
         }
