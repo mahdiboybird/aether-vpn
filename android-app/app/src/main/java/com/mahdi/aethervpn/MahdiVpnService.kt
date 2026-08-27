@@ -16,26 +16,28 @@ import java.io.File
 class MahdiVpnService : VpnService() {
 
     private var proc: Process? = null
-    private var thread: Thread? = null
+    private var vpnThread: Thread? = null
+    private var tun2socks: Tun2Socks? = null
     private var vpnInterface: ParcelFileDescriptor? = null
+    private var running = true
 
     companion object {
         const val CHANNEL = "mahdi_vpn"
         const val ACTION_STATUS = "com.mahdi.aethervpn.STATUS"
         const val SO_NAME = "libmahdi.so"
+        const val SOCKS_HOST = "127.0.0.1"
+        const val SOCKS_PORT = 1819
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(1, buildNotification("در حال راه‌اندازی VPN..."))
-        thread = Thread { runVpn() }
-        thread?.start()
+        vpnThread = Thread { runVpn() }
+        vpnThread?.start()
         return START_STICKY
     }
 
-    // Find libmahdi.so inside nativeLibraryDir (Android extracts jniLibs here, executable)
     private fun findBinary(): File? {
         val libRoot = File(applicationInfo.nativeLibraryDir)
-        Log.d("MAHDI_VPN", "nativeLibDir = ${libRoot.absolutePath}, exists=${libRoot.exists()}")
         fun scan(dir: File): File? {
             dir.listFiles()?.forEach { f ->
                 if (f.isDirectory) scan(f)?.let { return it }
@@ -43,32 +45,20 @@ class MahdiVpnService : VpnService() {
             }
             return null
         }
-        val found = scan(libRoot)
-        if (found != null) {
-            Log.d("MAHDI_VPN", "found ${found.absolutePath}, canExec=${found.canExecute()}")
-        } else {
-            Log.e("MAHDI_VPN", "libmahdi.so NOT found under $libRoot")
-        }
-        return found
+        return scan(libRoot)
     }
 
     private fun runVpn() {
         try {
             val bin = findBinary()
-            if (bin == null) {
-                sendStatus("خطا: باینری یافت نشد (nativeLibraryDir)")
-                return
-            }
-            // Run DIRECTLY from nativeLibraryDir — no copy (Android blocks exec elsewhere)
+            if (bin == null) { sendStatus("خطا: باینری یافت نشد"); return }
             bin.setExecutable(true, false)
-
-            val cmd = listOf(bin.absolutePath, "--wg", "--scan", "balanced", "--bind", "127.0.0.1:1819")
-            Log.d("MAHDI_VPN", "exec: ${bin.absolutePath}")
-            val pb = ProcessBuilder(cmd)
+            sendStatus("در حال اجرای Aether...")
+            val pb = ProcessBuilder(listOf(bin.absolutePath, "--wg", "--scan", "balanced", "--bind", "$SOCKS_HOST:$SOCKS_PORT"))
             pb.redirectErrorStream(true)
             proc = pb.start()
-            sendStatus("Aether در حال اجرا...")
-            Thread.sleep(3000)
+            Thread.sleep(4000)
+            sendStatus("Aether فعال — در حال ساخت تونل...")
 
             val builder = Builder()
                 .setSession("MAHDI VPN")
@@ -76,16 +66,17 @@ class MahdiVpnService : VpnService() {
                 .addDnsServer("1.1.1.1")
                 .addRoute("0.0.0.0", 0)
                 .establish()
-
-            if (builder == null) {
-                sendStatus("خطا: ساخت تونل VPN ناموفق")
-                return
-            }
+            if (builder == null) { sendStatus("خطا: ساخت تونل ناموفق"); return }
             vpnInterface = builder
+
+            // start tun2socks to bridge TUN <-> Aether SOCKS5
+            tun2socks = Tun2Socks(builder, SOCKS_HOST, SOCKS_PORT)
+            tun2socks?.start()
             sendStatus("متصل ✅ — کل ترافیک از طریق MAHDI VPN")
 
+            // keep monitoring aether
             proc?.inputStream?.bufferedReader()?.use { r ->
-                while (true) {
+                while (running) {
                     val line = r.readLine() ?: break
                     Log.d("MAHDI_VPN", line)
                 }
@@ -93,7 +84,7 @@ class MahdiVpnService : VpnService() {
             sendStatus("قطع شد")
         } catch (e: Exception) {
             sendStatus("خطا: ${e.message ?: e.javaClass.simpleName}")
-            Log.e("MAHDI_VPN", "vpn err", e)
+            Log.e("MAHDI_VPN", "err", e)
         }
     }
 
@@ -123,8 +114,10 @@ class MahdiVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        running = false
+        tun2socks?.stopThread()
         proc?.destroy()
-        thread?.interrupt()
+        vpnThread?.interrupt()
         try { vpnInterface?.close() } catch (_: Exception) {}
         super.onDestroy()
     }
