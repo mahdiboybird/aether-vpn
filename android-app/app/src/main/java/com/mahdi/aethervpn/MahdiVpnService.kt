@@ -72,7 +72,7 @@ class MahdiVpnService : VpnService() {
             // wrappers expected by go-tun2socks
             val vpnWrapper = object : tun2socks.VpnService {
                 override fun protect(socket: Long): Boolean =
-                    try { VpnService.protect(socket.toInt()); true }
+                    try { this@MahdiVpnService.protect(socket.toInt()); true }
                     catch (e: Exception) { false }
             }
             val logWrapper = object : tun2socks.LogService {
