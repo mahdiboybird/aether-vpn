@@ -22,7 +22,7 @@ class AetherService : Service() {
     companion object {
         const val CHANNEL = "mahdi_vpn"
         const val ACTION_STATUS = "com.mahdi.aethervpn.STATUS"
-        const val BIN_NAME = "mahdi"
+        const val SO_NAME = "libmahdi.so"
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -39,11 +39,45 @@ class AetherService : Service() {
         return START_STICKY
     }
 
+    private fun findBinary(): File? {
+        // 1. check nativeLibraryDir and all its subdirs
+        val libRoot = File(applicationInfo.nativeLibraryDir)
+        Log.d("MAHDI_VPN", "nativeLibDir: ${libRoot.absolutePath} exists=${libRoot.exists()}")
+        libRoot.listFiles()?.forEach { f ->
+            Log.d("MAHDI_VPN", "  entry: ${f.name} dir=${f.isDirectory}")
+        }
+        // recursive search for libmahdi.so
+        fun scan(dir: File): File? {
+            dir.listFiles()?.forEach { f ->
+                if (f.isDirectory) {
+                    scan(f)?.let { return it }
+                } else if (f.name == SO_NAME) {
+                    return f
+                }
+            }
+            return null
+        }
+        val found = scan(libRoot)
+        if (found != null) return found
+
+        // 2. fallback: try common paths
+        val candidates = listOf(
+            File(libRoot, SO_NAME),
+            File("/data/app/${packageName}/lib/arm64/$SO_NAME"),
+            File(filesDir, "mahdi")
+        )
+        return candidates.firstOrNull { it.exists() }
+    }
+
     private fun runBinary() {
         try {
-            // Android places .so libs in nativeLibraryDir; execute directly from there
-            val libDir = File(applicationInfo.nativeLibraryDir, "libmahdi.so")
-            val bin = if (libDir.exists()) libDir else File(applicationInfo.nativeLibraryDir, "libmahdi.so")
+            val bin = findBinary()
+            if (bin == null) {
+                sendStatus("خطا: باینری یافت نشد")
+                Log.e("MAHDI_VPN", "binary not found")
+                return
+            }
+            Log.d("MAHDI_VPN", "executing: ${bin.absolutePath}")
             bin.setExecutable(true, false)
 
             val cmd = listOf(
