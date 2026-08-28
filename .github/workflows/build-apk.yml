@@ -1,8 +1,11 @@
-name: Build AetherVPN APK
+name: Build MAHDI VPN APK
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'android-app/**'
+      - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
 jobs:
@@ -21,21 +24,38 @@ jobs:
       - name: Install Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Accept SDK licenses
+      - name: Accept licenses
         run: yes | sdkmanager --licenses || true
 
       - name: Make gradlew executable
         working-directory: android-app
-        run: |
-          chmod +x gradlew
-          ls -la gradlew
+        run: chmod +x gradlew
 
       - name: Build debug APK
         working-directory: android-app
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AetherVPN-APK
+          name: MAHDI-VPN-APK
           path: android-app/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Create Release (on push to main)
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.1-${{ github.run_number }}
+          name: "MAHDI VPN v1.1 (fix: no-crash)"
+          body: |
+            **حرفه‌ای و بدون کرش** — فیکس ۳ باگ اصلی:
+            - Manifest: BIND_VPN_SERVICE intent + foregroundServiceType specialUse
+            - MahdiVpnService: protect() instance + notification channel + error handling
+            - MainActivity: Android 14 receiver flag + POST_NOTIFICATIONS handling
+
+            نصب: APK رو دانلود کن، VpnService permission رو تایید کن، اتصال بزن.
+            صادقانه: VLESS روی Cloudflare فقط TCP — وب/تلگرام متن اوکی، کال UDP شانسیه.
+          files: android-app/app/build/outputs/apk/debug/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
